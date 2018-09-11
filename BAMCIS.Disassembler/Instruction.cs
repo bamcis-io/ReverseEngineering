@@ -117,5 +117,23 @@ namespace BAMCIS.Disassembler
         }
 
         #endregion
+
+        #region Public Methods
+
+        public IEnumerable<Instruction> LinearSweep(byte[] data)
+        {
+            using (MemoryStream MStream = new MemoryStream())
+            {
+                MStream.Write(data, 0, data.Length);
+                MStream.Position = 0;
+
+                while (MStream.Position < MStream.Length - 1)
+                {
+                    yield return new Instruction(MStream);
+                }
+            }
+        }
+
+        #endregion
     }
 }
