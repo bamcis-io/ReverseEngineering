@@ -10,109 +10,221 @@ namespace BAMCIS.Disassembler
     {
         #region Public Properties
 
-        public Prefix Prefix { get; }
+        public IEnumerable<Prefix> Prefixes { get; }
 
         public OpCode OpCode { get; }
 
-        public MODRM MODRM { get; }
+        public ModRM ModRM { get; }
 
         public SIB SIB { get; }
 
-        public int Displacement { get; }
+        public byte[] Displacement { get; }
 
-        public int Immediate { get; }
+        public byte[] Immediate { get; }
 
         #endregion
 
         #region Constructors
 
-        public Instruction(MemoryStream stream)
+        private Instruction(MemoryStream stream)
         {
             if (stream.Position < stream.Length - 1)
             {
-                byte FirstByte = (byte)stream.ReadByte();
+                Prefix Pre;
+                List<Prefix> TempPres = new List<Prefix>();
 
-                IEnumerable<Prefix> Prefixes = Prefix.Parse(FirstByte);
-                Prefix Pre = Prefixes.First();
-                
-                if (Pre != Prefix.NONE)
+                int LastByteRead;
+
+                // Deal with optional, variable amount of prefixes
+                do
                 {
-                    // Find the right prefix
+                    LastByteRead = stream.ReadByte();
+                    IEnumerable<Prefix> Prefixes = Prefix.Parse((byte)LastByteRead);
+                    Pre = Prefixes.First();
+                    TempPres.Add(Pre);
+                } while (Pre != Prefix.NONE && LastByteRead != -1);
+
+                // If there are not prefixes, we'll just have 1 prefix in there, NONE
+                this.Prefixes = TempPres;
+
+                // If there were any prefixes, then we need to know what that last one was
+                // Otherwise the last byte read can stay in place
+                if (TempPres.Count > 1)
+                {
+                    stream.Position += -1;
+                    LastByteRead = stream.ReadByte();
+
+                    // If the last prefix wasn't a mandatory prefix, read the following byte
+                    // Otherwise leave the last byte read as that prefix
+                    if (LastByteRead != 0x66 &&
+                        LastByteRead != 0xF2 &&
+                        LastByteRead != 0xF3)
+                    {
+                        LastByteRead = stream.ReadByte();
+                    }
                 }
-                else
+
+                // The position in the stream is directly after the last byte read
+
+                int MaxOpCodeLength = 1;
+
+                // The last byte read will either be the last prefix in the list
+                // Or it will be a noop or the op code
+                switch (LastByteRead)
                 {
-                    // Move back to the original byte
-                    stream.Position = stream.Position - 1;
-                }
-
-                this.Prefix = Pre;
-                byte[] OpCodeBytes;
-
-                long BytesLeft = stream.Length - stream.Position;
-                int BytesToRead = 3;
-
-                switch (BytesLeft)
-                {
-                    case 1:
+                    case 0x0F:
                         {
-                            OpCodeBytes = new byte[1];
-                            BytesToRead = 1;
+                            // Escape OpCode, the following 1 or 2 bytes will be 
+                            // the actual opcode, do nothing
+                            MaxOpCodeLength = 2;
                             break;
                         }
-                    case 2:
+                    case 0x66:
+                    case 0xF2:
+                    case 0xF3:
                         {
-                            OpCodeBytes = new byte[2];
-                            BytesToRead = 2;
+                            // Mandatory Prefix, next byte should be an escape opcode (where
+                            // the stream position currently points),
+                            // so move to the byte after that
+                            stream.Position += 1;
+                            MaxOpCodeLength = 2;
                             break;
                         }
                     default:
                         {
-                            OpCodeBytes = new byte[3];
+                            // One byte opcode, move stream back 1 so that it will be read
+                            stream.Position += -1;
                             break;
                         }
                 }
 
-                stream.Read(OpCodeBytes, 0, BytesToRead);
-
-                this.OpCode = OpCode.Parse(OpCodeBytes);
-
-                // If we took too many bytes, move the stream position back
-                stream.Position = stream.Position - (OpCodeBytes.Length - this.OpCode.Code.Length);
-
-                if (this.OpCode.RequiresModRM)
+                // Make sure we don't try to read off the end of the stream                
+                if (MaxOpCodeLength > (stream.Length - stream.Position))
                 {
-                    if (stream.Position < stream.Length - 1)
-                    {
-                        this.MODRM = new MODRM((byte)stream.ReadByte());
-                    }
+                    MaxOpCodeLength = (int)(stream.Length - stream.Position);
+                }
+
+                // Allocate a buffer to hold the bytes being read
+                byte[] OpCodeBytes = new byte[MaxOpCodeLength];
+
+                // Read the bytes
+                stream.Read(OpCodeBytes, 0, MaxOpCodeLength);
+
+                bool ValidOpCode = false;
+                OpCode Op;
+                Register OffsetRegister;
+
+                // Try to see if 2 byte arrangement is a valid opcode
+                if (OpCode.RequiresOpCodeExtension(OpCodeBytes))
+                {
+                    byte ModRM = (byte)stream.ReadByte();
+                    stream.Position += -1;
+                    ValidOpCode = OpCode.TryParse(OpCodeBytes, out Op, out OffsetRegister, ModRM);
                 }
                 else
                 {
-                    this.MODRM = null;
+                    ValidOpCode = OpCode.TryParse(OpCodeBytes, out Op, out OffsetRegister);
                 }
 
-
-                if (this.OpCode.RequiresSIB)
+                // If the 2 bytes weren't a valid opcode, try with just 1 byte
+                if (!ValidOpCode && OpCodeBytes.Length == 2)
                 {
-                    if (stream.Position < stream.Length - 1)
+                    byte ModRM = OpCodeBytes[1];
+                    OpCodeBytes = OpCodeBytes.Take(1).ToArray();
+                    stream.Position += -1; // Move the stream back 1 position
+
+                    if (OpCode.RequiresOpCodeExtension(OpCodeBytes))
                     {
-                        this.SIB = new SIB((byte)stream.ReadByte());
+                        ValidOpCode = OpCode.TryParse(OpCodeBytes, out Op, out OffsetRegister, ModRM);
+                    }
+                    else
+                    {
+                        ValidOpCode = OpCode.TryParse(OpCodeBytes, out Op, out OffsetRegister);
                     }
                 }
-                else
+
+                // Right now the stream position is on the byte right after the op code bytes
+
+                if (ValidOpCode)
                 {
-                    this.SIB = null;
+                    this.OpCode = Op;
+
+                    if (this.OpCode.RequiresModRM())
+                    {
+                        int ModRMByte = stream.ReadByte();
+
+                        if (ModRMByte == -1)
+                        {
+                            return;
+                        }
+                        this.ModRM = new ModRM((byte)ModRMByte);
+
+                        // If a SIB byte is used, it must follow a ModRM byte
+                        if (this.ModRM.SIBByteFollows())
+                        {
+                            int SIBByte = stream.ReadByte();
+
+                            if (SIBByte == -1)
+                            {
+                                return;
+                            }
+
+                            this.SIB = new SIB((byte)SIBByte);
+                        }
+                        else
+                        {
+                            this.SIB = null;
+                        }
+
+                        if (this.ModRM.InstructionHasDisplacement())
+                        {
+                            if (this.ModRM.MOD == MOD.RM_BYTE)
+                            {
+                                int Displacement = stream.ReadByte();
+
+                                if (Displacement == -1)
+                                {
+                                    return;
+                                }
+
+                                this.Displacement = new byte[4] { (byte)Displacement, 0, 0, 0 };
+                            }
+                            else
+                            {
+                                byte[] Disp = new byte[4];
+                                int BytesRead = stream.Read(Disp, 0, 4);
+
+                                if (BytesRead == 0)
+                                {
+                                    return;
+                                }
+
+                                this.Displacement = Disp;
+                            }
+                        }
+
+                        if (this.OpCode.OpEn.InstructionHasImmediate())
+                        {
+                            byte[] Imm = new byte[4];
+                            int BytesRead = stream.Read(Imm, 0, 4);
+
+                            if (BytesRead == 0)
+                            {
+                                return;
+                            }
+
+                            this.Immediate = Imm;
+                        }
+                    }
+                    else
+                    {
+                        this.ModRM = null;
+                        this.SIB = null;
+                        this.Displacement = null;
+                        this.Immediate = null;
+                    }
                 }
-
-                if (this.OpCode.HasDisplacement)
-                {
-
-                }
-
-                if (this.OpCode.HasImmediate)
-                {
-
-                }
+                // Otherwise, skip this byte and move on
             }
         }
 
@@ -120,14 +232,14 @@ namespace BAMCIS.Disassembler
 
         #region Public Methods
 
-        public IEnumerable<Instruction> LinearSweep(byte[] data)
+        public static IEnumerable<Instruction> LinearSweep(byte[] data)
         {
             using (MemoryStream MStream = new MemoryStream())
             {
                 MStream.Write(data, 0, data.Length);
                 MStream.Position = 0;
 
-                while (MStream.Position < MStream.Length - 1)
+                while (MStream.Position < MStream.Length)
                 {
                     yield return new Instruction(MStream);
                 }

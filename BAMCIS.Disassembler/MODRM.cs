@@ -4,7 +4,7 @@ using System.Text;
 
 namespace BAMCIS.Disassembler
 {
-    public class MODRM
+    public class ModRM
     {
         #region Public Properties
 
@@ -18,7 +18,7 @@ namespace BAMCIS.Disassembler
 
         #region Constructors
 
-        public MODRM(byte modrm)
+        public ModRM(byte modrm)
         {
             byte mod = (byte)(modrm >> 6);
 
@@ -37,5 +37,18 @@ namespace BAMCIS.Disassembler
 
         #endregion
 
+        #region Public Methods
+
+        public bool SIBByteFollows()
+        {
+            return (this.MOD != MOD.RM_DIRECT) && this.RM == 0x04;
+        }
+
+        public bool InstructionHasDisplacement()
+        {
+            return this.MOD == MOD.RM_BYTE || this.MOD == MOD.RM_DWORD;
+        }
+
+        #endregion
     }
 }

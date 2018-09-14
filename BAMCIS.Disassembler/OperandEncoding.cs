@@ -7,9 +7,9 @@ namespace BAMCIS.Disassembler
     public enum OperandEncoding
     {
         /// <summary>
-        /// IMMEDIATE
+        /// REG/MEM
         /// </summary>
-        I,
+        M,
 
         /// <summary>
         /// REG/MEM, IMMEDIATE
@@ -27,9 +27,39 @@ namespace BAMCIS.Disassembler
         RM,
 
         /// <summary>
-        /// OFFSET
+        /// REG, REG/MEM, IMMEDIATE
+        /// </summary>
+        RMI,
+
+        /// <summary>
+        /// REG/MEM, 1
+        /// </summary>
+        M1,
+
+        /// <summary>
+        /// REG/MEM, CL
+        /// </summary>
+        MC,
+
+        /// <summary>
+        /// IMMEDIATE
+        /// </summary>
+        I,
+
+        /// <summary>
+        /// OFFSET, relative displacement
         /// </summary>
         D,
+
+        /// <summary>
+        /// AL/AX/EAX/RAX, Moffs
+        /// </summary>
+        FD,
+
+        /// <summary>
+        /// Moffs, AL/AX/EAX/RAX
+        /// </summary>
+        TD,
 
         /// <summary>
         /// No Operands
@@ -37,8 +67,18 @@ namespace BAMCIS.Disassembler
         ZO,
 
         /// <summary>
+        /// No Operands
+        /// </summary>
+        NP,
+
+        /// <summary>
         /// Opcode + REG 
         /// </summary>
-        O
+        O,
+
+        /// <summary>
+        /// Opcode + REG + IMMEDIATE
+        /// </summary>
+        OI
     }
 }

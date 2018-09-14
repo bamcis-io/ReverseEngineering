@@ -14,7 +14,7 @@ namespace BAMCIS.Disassembler.Tests
             byte MODRM = 0xFF;
 
             // ACT
-            MODRM modrm = new MODRM(MODRM);
+            ModRM modrm = new ModRM(MODRM);
 
             // ASSERT
             Assert.Equal(MOD.RM_DIRECT, modrm.MOD);
@@ -29,7 +29,7 @@ namespace BAMCIS.Disassembler.Tests
             byte MODRM = 0xFE;
 
             // ACT
-            MODRM modrm = new MODRM(MODRM);
+            ModRM modrm = new ModRM(MODRM);
 
             // ASSERT
             Assert.Equal(MOD.RM_DIRECT, modrm.MOD);
@@ -44,7 +44,7 @@ namespace BAMCIS.Disassembler.Tests
             byte MODRM = 0x0F;
 
             // ACT
-            MODRM modrm = new MODRM(MODRM);
+            ModRM modrm = new ModRM(MODRM);
 
             // ASSERT
             Assert.Equal(MOD.RM, modrm.MOD);

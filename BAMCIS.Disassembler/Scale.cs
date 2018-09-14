@@ -10,16 +10,16 @@
         /// <summary>
         /// The index register is multiplied by 2. The base register followed by a displacement. 
         /// </summary>
-        TIMES_TWO = 0x01,
+        TIMES_TWO       = 0x01,
 
         /// <summary>
         /// The index register is multiplied by 4. The base register followed by a displacement. 
         /// </summary>
-        TIMES_FOUR = 0x02,
+        TIMES_FOUR      = 0x02,
 
         /// <summary>
         /// The index register is multiplied by 8. The base register followed by a displacement. 
         /// </summary>
-        TIMES_EIGHT = 0x03
+        TIMES_EIGHT     = 0x03
     }
 }
