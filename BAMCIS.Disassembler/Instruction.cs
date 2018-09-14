@@ -77,6 +77,8 @@ namespace BAMCIS.Disassembler
                             // Escape OpCode, the following 1 or 2 bytes will be 
                             // the actual opcode, do nothing
                             MaxOpCodeLength = 2;
+                            // Move the stream back since this byte is part of the opcode signature
+                            stream.Position += -1;
                             break;
                         }
                     case 0x66:
@@ -86,7 +88,6 @@ namespace BAMCIS.Disassembler
                             // Mandatory Prefix, next byte should be an escape opcode (where
                             // the stream position currently points),
                             // so move to the byte after that
-                            stream.Position += 1;
                             MaxOpCodeLength = 2;
                             break;
                         }

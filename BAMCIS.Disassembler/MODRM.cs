@@ -46,7 +46,7 @@ namespace BAMCIS.Disassembler
 
         public bool InstructionHasDisplacement()
         {
-            return this.MOD == MOD.RM_BYTE || this.MOD == MOD.RM_DWORD;
+            return this.MOD == MOD.RM_BYTE || this.MOD == MOD.RM_DWORD || (this.MOD == MOD.RM && this.RM == 0x05);
         }
 
         #endregion
