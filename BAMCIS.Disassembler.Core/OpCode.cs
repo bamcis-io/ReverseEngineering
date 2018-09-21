@@ -194,7 +194,7 @@ namespace BAMCIS.Disassembler.Core
 
                 #region MOVSD
 
-                new OpCode(new byte[] { 0xA5 }, Constants.MOVSD, OperandEncoding.ZO, "For legacy mode, move dword from address DS:(E)SI to ES:(E)DI. For 64-bit mode move dword from address (R|E)SI to (R|E)DI.", 32),
+                new OpCode(new byte[] { 0xA5 }, Constants.MOVS, OperandEncoding.ZO, "For legacy mode, move dword from address DS:(E)SI to ES:(E)DI. For 64-bit mode move dword from address (R|E)SI to (R|E)DI.", 32),
 
                 #endregion
 
@@ -240,6 +240,15 @@ namespace BAMCIS.Disassembler.Core
 
                 #endregion
 
+                #region OUT
+
+                new OpCode(new byte[] {0xE6}, Constants.OUT, OperandEncoding.I, "Output doubleword in AL to I/O port address imm8.", 8),
+                new OpCode(new byte[] {0xE7}, Constants.OUT, OperandEncoding.I, "Output doubleword in EAX to I/O port address imm8.", 8),
+                new OpCode(new byte[] {0xEE}, Constants.OUT, OperandEncoding.ZO, "Output byte in AL to I/O port address in DX.", 8),
+                new OpCode(new byte[] {0xEF}, Constants.OUT, OperandEncoding.ZO, "Output byte in EAX to I/O port address in DX.", 32),
+
+                #endregion
+
                 #region POP
 
                 new OpCode(new byte[] { 0x8F }, Constants.POP, OperandEncoding.M, "Pop top of stack into m32; increment stack pointer.", 32, 0),
@@ -273,6 +282,13 @@ namespace BAMCIS.Disassembler.Core
                 new OpCode(new byte[] { 0xCB }, Constants.RET, OperandEncoding.ZO, "Far return to calling procedure.", 32),
                 new OpCode(new byte[] { 0xC2 }, Constants.RET, OperandEncoding.I, "Near return to calling procedure and pop imm16 bytes from stack.", 16),
                 new OpCode(new byte[] { 0xCA }, Constants.RET, OperandEncoding.I, "Far return to calling procedure and pop imm16 bytes from stack.", 16),
+
+                #endregion
+
+                #region REPNE CMPS
+
+                new OpCode(new byte[] {0xF2, 0xA6}, Constants.REPNE_CMPS, OperandEncoding.ZO, "Find matching bytes in ES:[(E)DI] and DS:[(E)SI].", 8),
+                new OpCode(new byte[] {0xF2, 0xA7}, Constants.REPNE_CMPS, OperandEncoding.ZO, "Find matching words in ES:[(E)DI] and DS:[(E)SI].", 32),
 
                 #endregion
 

@@ -446,7 +446,7 @@ namespace BAMCIS.Disassembler.Tests
             Instruction Ins = Parsed.Last();
             Assert.Equal(Constants.JMP, Ins.OpCode.Name);
             string LastLine = Instruc.Split("\r\n").Last();
-            Assert.Equal("0x00000008\tE9F3FFFFFF\tjmp offset_00000000", LastLine);
+            Assert.Equal("0x00000008\tE9F3FFFFFF\tjmp offset_00000000h", LastLine);
         }
 
         [Fact]
@@ -485,7 +485,7 @@ namespace BAMCIS.Disassembler.Tests
             Instruction Ins = Parsed.Last();
             Assert.Equal(Constants.JMP, Ins.OpCode.Name);
             string LastLine = Instruc.Split("\r\n").Last();
-            Assert.Equal("0x00000008\tEBF6\tjmp offset_00000000", LastLine);
+            Assert.Equal("0x00000008\tEBF6\tjmp offset_00000000h", LastLine);
         }
 
         [Fact]

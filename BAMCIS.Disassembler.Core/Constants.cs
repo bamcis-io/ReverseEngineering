@@ -16,7 +16,7 @@
         public const string JNZ = "JNZ";
         public const string LEA = "LEA";
         public const string MOV = "MOV";
-        public const string MOVSD = "MOVSD";
+        public const string MOVS = "MOVS";
         public const string MUL = "MUL";
         public const string NEG = "NEG";
         public const string NOP = "NOP";
@@ -27,7 +27,7 @@
         public const string PUSH = "PUSH";
         public const string REPNE = "REPNE";
         public const string CMPSD = "CMPSD";
-        public const string REPNE_CMPSD = "REPNE CMPSD";
+        public const string REPNE_CMPS = "REPNE CMPS";
         public const string RET = "RET";
         public const string SAL = "SAL";
         public const string SAR = "SAR";

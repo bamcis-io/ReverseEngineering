@@ -11,6 +11,24 @@ namespace BAMCIS.Disassembler
         public static void Main(string[] args)
         {
             Console.WriteLine("No Disassemble!");
+                    string Johnny5 = @"
+                        _//)_//)
+                       / /)=/ /)
+                      ((O)=(O))
+                         \||/
+                 ________====____[o]_ 
+             )/)|___._==      ==_.___|(\(
+            (( \ || '-.________.-' || / ))
+             \=/ ||     ..''..     || \=/
+              \\_//    / [||] \    \\_//
+               \V/    / ...... \    \V/
+                      \::::::::/
+                _____.---'  '---._____
+               |_-_-_|__------__|_-_-_|
+               |_-_-_|=        =|_-_-_|
+               |_-_-_|          |_-_-_|
+";
+            Console.WriteLine(Johnny5);
             Console.WriteLine("-------------------------------------------------------");
             Console.WriteLine("");
 

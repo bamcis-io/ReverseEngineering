@@ -391,7 +391,7 @@ namespace BAMCIS.Disassembler.Core
 
                     byte[] ValueBytes = BitConverter.GetBytes(Value);
 
-                    return new KeyValuePair<long, string>(Value, labelPrefix + ValueBytes.ToHexString(true, Scaling).Substring(2));
+                    return new KeyValuePair<long, string>(Value, labelPrefix + ValueBytes.ToHexString(true, Scaling).Substring(2) + "h");
                 }
                 else
                 {
