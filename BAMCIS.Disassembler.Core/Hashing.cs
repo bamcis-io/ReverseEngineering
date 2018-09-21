@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace BAMCIS.Disassembler
+﻿namespace BAMCIS.Disassembler.Core
 {
     /// <summary>
     /// Provides a method for implementing custom GetHashCode() overrides.

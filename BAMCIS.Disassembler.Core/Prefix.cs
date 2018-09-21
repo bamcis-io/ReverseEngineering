@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
-namespace BAMCIS.Disassembler
+namespace BAMCIS.Disassembler.Core
 {
     public class Prefix
     {
@@ -63,18 +61,18 @@ namespace BAMCIS.Disassembler
         {
             LookupTable = new Dictionary<byte, IEnumerable<Prefix>>()
             {
-                { 0x00, new Prefix[] { Disassembler.Prefix.NONE } },
-                { 0xF0, new Prefix[] { Disassembler.Prefix.LOCK } },
-                { 0xF2, new Prefix[] { Disassembler.Prefix.REPNE, Disassembler.Prefix.REPNZ, Disassembler.Prefix.BND } },
-                { 0xF3, new Prefix[] { Disassembler.Prefix.REP, Disassembler.Prefix.REPE, Disassembler.Prefix.REPZ } },
-                { 0x2E, new Prefix[] { Disassembler.Prefix.CS, Disassembler.Prefix.BRANCH_NOT_TAKEN } },
-                { 0x36, new Prefix[] { Disassembler.Prefix.SS } },
-                { 0x3E, new Prefix[] { Disassembler.Prefix.DS, Disassembler.Prefix.BRANCH_TAKEN } },
-                { 0x26, new Prefix[] { Disassembler.Prefix.ES } },
-                { 0x64, new Prefix[] { Disassembler.Prefix.FS } },
-                { 0x65, new Prefix[] { Disassembler.Prefix.GS } },
-                { 0x66, new Prefix[] { Disassembler.Prefix.OPERAND_SIZE_OVERRIDE } },
-                { 0x67, new Prefix[] { Disassembler.Prefix.ADDRESS_SIZE_OVERRIDE } }
+                { 0x00, new Prefix[] { NONE } },
+                { 0xF0, new Prefix[] { LOCK } },
+                { 0xF2, new Prefix[] { REPNE, REPNZ, BND } },
+                { 0xF3, new Prefix[] { REP, REPE, REPZ } },
+                { 0x2E, new Prefix[] { CS, BRANCH_NOT_TAKEN } },
+                { 0x36, new Prefix[] { SS } },
+                { 0x3E, new Prefix[] { DS, BRANCH_TAKEN } },
+                { 0x26, new Prefix[] { ES } },
+                { 0x64, new Prefix[] { FS } },
+                { 0x65, new Prefix[] { GS } },
+                { 0x66, new Prefix[] { OPERAND_SIZE_OVERRIDE } },
+                { 0x67, new Prefix[] { ADDRESS_SIZE_OVERRIDE } }
             };
         }
 
@@ -96,7 +94,7 @@ namespace BAMCIS.Disassembler
             }
             else
             {
-                return new Prefix[] { Disassembler.Prefix.NONE };
+                return new Prefix[] { NONE };
             }
         }
 

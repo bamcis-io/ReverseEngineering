@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
+using BAMCIS.Disassembler.Core;
 
 namespace BAMCIS.Disassembler.Tests
 {
@@ -12,28 +13,28 @@ namespace BAMCIS.Disassembler.Tests
         public void TestValidPrefix()
         {
             // ARRANGE
-            byte Prefix = 0xF0;
+            byte PrefixByte = 0xF0;
 
             // ACT
-            IEnumerable<Prefix> Prefixes = Disassembler.Prefix.Parse(Prefix);
+            IEnumerable<Prefix> Prefixes = Prefix.Parse(PrefixByte);
 
             // ASSERT
             Assert.True(Prefixes.Count() == 1);
-            Assert.True(Prefixes.First() == Disassembler.Prefix.LOCK);
+            Assert.True(Prefixes.First() == Prefix.LOCK);
         }
 
         [Fact]
         public void TestBadPrefix()
         {
             // ARRANGE
-            byte Prefix = 0x10;
+            byte PrefixByte = 0x10;
 
             // ACT
-            IEnumerable<Prefix> Prefixes = Disassembler.Prefix.Parse(Prefix);
+            IEnumerable<Prefix> Prefixes = Prefix.Parse(PrefixByte);
 
             // ASSERT
             Assert.True(Prefixes.Count() == 1);
-            Assert.True(Prefixes.First() == Disassembler.Prefix.NONE);
+            Assert.True(Prefixes.First() == Prefix.NONE);
         }
     }
 }

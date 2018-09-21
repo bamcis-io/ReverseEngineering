@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Xunit;
 using System.IO;
+using BAMCIS.Disassembler.Core;
 
 namespace BAMCIS.Disassembler.Tests
 {
@@ -137,6 +138,34 @@ namespace BAMCIS.Disassembler.Tests
                 foreach (Instruction Ins in Instructions)
                 {
                     Buffer.AppendLine(Ins.ToString());
+                }
+
+                Buffer.Length += -2;
+
+                string Commands = Buffer.ToString();
+
+                // ASSERT
+                Assert.True(!String.IsNullOrEmpty(Commands));
+            }
+        }
+
+        [Fact]
+        public void TestEx2OLSToColumns()
+        {
+            // ARRANGE
+            using (FileStream FS = File.OpenRead("CodeFiles\\ex2.o"))
+            {
+                byte[] Content = new byte[FS.Length];
+                FS.Read(Content, 0, Content.Length);
+
+                // ACT
+                IEnumerable<string[]> Instructions = Instruction.LinearSweepToColumns(Content);
+
+                StringBuilder Buffer = new StringBuilder();
+
+                foreach (string[] Ins in Instructions)
+                {
+                    Buffer.AppendLine(String.Join("\t", Ins));
                 }
 
                 Buffer.Length += -2;

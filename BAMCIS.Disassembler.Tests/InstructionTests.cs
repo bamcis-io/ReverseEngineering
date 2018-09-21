@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Xunit;
+using BAMCIS.Disassembler.Core;
 
 namespace BAMCIS.Disassembler.Tests
 {
@@ -22,7 +23,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(1, Parsed.Count());
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.MOV, Ins.OpCode.Name);
-            Assert.Equal("0x00000000\t\tmov\t\tesi, ebx", Ins.ToString());
+            Assert.Equal("0x00000000\t8BF3\tmov esi, ebx", Ins.ToString());
 
         }
 
@@ -40,7 +41,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(1, Parsed.Count());
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.MOV, Ins.OpCode.Name);
-            Assert.Equal("0x00000000\t\tmov\t\t[esi], ebx", Ins.ToString());
+            Assert.Equal("0x00000000\t891E\tmov [esi], ebx", Ins.ToString());
 
         }
 
@@ -59,7 +60,7 @@ namespace BAMCIS.Disassembler.Tests
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.ADD, Ins.OpCode.Name);
             Assert.Equal(new byte[]{ 0x44, 0x33, 0x22, 0x11}, Ins.Immediate);
-            Assert.Equal("0x00000000\t\tadd\t\tedi, 0x11223344", Ins.ToString());
+            Assert.Equal("0x00000000\t81C744332211\tadd edi, 0x11223344", Ins.ToString());
 
         }
 
@@ -79,7 +80,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(Constants.ADD, Ins.OpCode.Name);
             Assert.Equal(new byte[] { 0x44, 0x33, 0x22, 0x11 }, Ins.Immediate);
             Assert.Equal(new byte[] { 0xDD, 0xCC, 0xBB, 0xAA }, Ins.Displacement);
-            Assert.Equal("0x00000000\t\tadd\t\t[edi+0xAABBCCDD], 0x11223344", Ins.ToString());
+            Assert.Equal("0x00000000\t8187DDCCBBAA44332211\tadd [edi+0xAABBCCDD], 0x11223344", Ins.ToString());
         }
 
         [Fact]
@@ -104,7 +105,7 @@ namespace BAMCIS.Disassembler.Tests
             // ASSERT
             Assert.Equal(2, Parsed.Count());
 
-            Assert.Equal("0x00000000\t\tmov\t\tesi, ebx\r\n0x00000002\t\tmov\t\t[esi], ebx\r\n", Buffer.ToString());
+            Assert.Equal("0x00000000\t8BF3\tmov esi, ebx\r\n0x00000002\t891E\tmov [esi], ebx\r\n", Buffer.ToString());
         }
 
         [Fact]
@@ -123,7 +124,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(1, Parsed.Count());
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.CLFLUSH, Ins.OpCode.Name);
-            Assert.Equal("0x00000000\t\tclflush\t\t[eax]", Ins.ToString());
+            Assert.Equal("0x00000000\t0FAE38\tclflush [eax]", Ins.ToString());
         }
 
         [Fact]
@@ -144,7 +145,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(Constants.CLFLUSH, Ins.OpCode.Name);
             Assert.Equal(Register.EAX.Code, Ins.ModRM.RM);
             Assert.Equal(new byte[] { 0x08, 0, 0, 0 }, Ins.Displacement);
-            Assert.Equal("0x00000000\t\tclflush\t\t[eax+0x08]", Ins.ToString());
+            Assert.Equal("0x00000000\t0FAE7808\tclflush [eax+0x08]", Ins.ToString());
         }
 
         [Fact]
@@ -165,7 +166,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(Constants.CLFLUSH, Ins.OpCode.Name);
             Assert.Equal(Register.EAX.Code, Ins.ModRM.RM);
             Assert.Equal(new byte[] { 0x08, 0, 0, 0 }, Ins.Displacement);
-            Assert.Equal("0x00000000\t\tclflush\t\t[eax+0x00000008]", Ins.ToString());
+            Assert.Equal("0x00000000\t0FAEB808000000\tclflush [eax+0x00000008]", Ins.ToString());
 
         }
 
@@ -189,7 +190,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(Register.ESI.Code, Ins.SIB.Base);
             Assert.Equal(Register.EDI.Code, Ins.SIB.Index);
             Assert.Equal(new byte[] { 0x08, 0, 0, 0 }, Ins.Displacement);
-            Assert.Equal("0x00000000\t\tclflush\t\t[edi*4+esi+0x00000008]", Ins.ToString());
+            Assert.Equal("0x00000000\t0FAEBCBE08000000\tclflush [edi*4+esi+0x00000008]", Ins.ToString());
         }
 
         [Fact]
@@ -212,7 +213,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(Register.ESI.Code, Ins.SIB.Base);
             Assert.Equal(Register.EDI.Code, Ins.SIB.Index);
             Assert.Equal(new byte[] { 0x08, 0, 0, 0 }, Ins.Displacement);
-            Assert.Equal("0x00000000\t\tclflush\t\t[edi*4+esi+0x08]", Ins.ToString());
+            Assert.Equal("0x00000000\t0FAE7CBE08\tclflush [edi*4+esi+0x08]", Ins.ToString());
         }
 
         [Fact]
@@ -232,7 +233,7 @@ namespace BAMCIS.Disassembler.Tests
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.CLFLUSH, Ins.OpCode.Name);
             Assert.Equal(new byte[] { 0x44, 0x33, 0x22, 0x11 }, Ins.Displacement);
-            Assert.Equal("0x00000000\t\tclflush\t\t[0x11223344]", Ins.ToString());
+            Assert.Equal("0x00000000\t0FAE3D44332211\tclflush [0x11223344]", Ins.ToString());
         }
 
         [Fact]
@@ -294,7 +295,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(1, Parsed.Count());
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.MOV, Ins.OpCode.Name);
-            Assert.Equal("0x00000000\t\tmov\t\t[esi*8+edi], ebx\r\n", Instruc);
+            Assert.Equal("0x00000000\t891CF7\tmov [esi*8+edi], ebx\r\n", Instruc);
         }
 
         [Fact]
@@ -322,7 +323,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(1, Parsed.Count());
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.MOV, Ins.OpCode.Name);
-            Assert.Equal("0x00000000\t\tmov\t\t[esi*4+edi+0xAABBCCDD], 0x11223344\r\n", Instruc);
+            Assert.Equal("0x00000000\tC784B7DDCCBBAA44332211\tmov [esi*4+edi+0xAABBCCDD], 0x11223344\r\n", Instruc);
         }
 
         [Fact]
@@ -350,7 +351,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(1, Parsed.Count());
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.LEA, Ins.OpCode.Name);
-            Assert.Equal("0x00000000\t\tlea\t\tecx, [ebp*2+ebx]\r\n", Instruc);
+            Assert.Equal("0x00000000\t8D0C6B\tlea ecx, [ebp*2+ebx]\r\n", Instruc);
         }
 
         [Fact]
@@ -378,7 +379,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(1, Parsed.Count());
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.MOV, Ins.OpCode.Name);
-            Assert.Equal("0x00000000\t\tmov\t\t[esi*4], 0x11223344\r\n", Instruc);
+            Assert.Equal("0x00000000\tC704B50000000044332211\tmov [esi*4], 0x11223344\r\n", Instruc);
         }
 
         [Fact]
@@ -406,7 +407,7 @@ namespace BAMCIS.Disassembler.Tests
             Assert.Equal(1, Parsed.Count());
             Instruction Ins = Parsed.First();
             Assert.Equal(Constants.MOV, Ins.OpCode.Name);
-            Assert.Equal("0x00000000\t\tmov\t\t[esp], ecx\r\n", Instruc);
+            Assert.Equal("0x00000000\t890CE4\tmov [esp], ecx\r\n", Instruc);
         }
 
         [Fact]
@@ -445,7 +446,7 @@ namespace BAMCIS.Disassembler.Tests
             Instruction Ins = Parsed.Last();
             Assert.Equal(Constants.JMP, Ins.OpCode.Name);
             string LastLine = Instruc.Split("\r\n").Last();
-            Assert.Equal("0x00000008\t\tjmp\t\toffset_00000000", LastLine);
+            Assert.Equal("0x00000008\tE9F3FFFFFF\tjmp offset_00000000", LastLine);
         }
 
         [Fact]
@@ -484,7 +485,7 @@ namespace BAMCIS.Disassembler.Tests
             Instruction Ins = Parsed.Last();
             Assert.Equal(Constants.JMP, Ins.OpCode.Name);
             string LastLine = Instruc.Split("\r\n").Last();
-            Assert.Equal("0x00000008\t\tjmp\t\toffset_00000000", LastLine);
+            Assert.Equal("0x00000008\tEBF6\tjmp offset_00000000", LastLine);
         }
 
         [Fact]
@@ -504,7 +505,7 @@ namespace BAMCIS.Disassembler.Tests
             Instruction Ins = Parsed.Last();
             Assert.Equal(Constants.SAL, Ins.OpCode.Name);
             
-            Assert.Equal("0x00000000\t\tsal\t\tecx, 1", Ins.ToString());
+            Assert.Equal("0x00000000\tD1E1\tsal ecx, 1", Ins.ToString());
         }
     }
 }

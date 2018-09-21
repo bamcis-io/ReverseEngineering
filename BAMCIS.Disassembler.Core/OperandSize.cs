@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace BAMCIS.Disassembler
+namespace BAMCIS.Disassembler.Core
 {
     public enum OperandSize : Int32
     {

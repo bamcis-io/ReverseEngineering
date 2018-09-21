@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace BAMCIS.Disassembler
+namespace BAMCIS.Disassembler.Core
 {
     public class Register
     {

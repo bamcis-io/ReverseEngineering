@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text;
 
-namespace BAMCIS.Disassembler
+namespace BAMCIS.Disassembler.Core
 {
     /// <summary>
     /// The SIB byte is used when scaling needs to occur or often when we are adding two registers together to calculate an address.
@@ -73,7 +73,7 @@ namespace BAMCIS.Disassembler
                                 if (displacement != null && displacement.Any(x => x != 0x00))
                                 {
                                     Buffer.Append("+");
-                                    Buffer.Append(Instruction.ConvertToHexString(displacement));
+                                    Buffer.Append(displacement.ToHexString(true));
                                 }
                                 break;
                             }
@@ -81,8 +81,8 @@ namespace BAMCIS.Disassembler
                             {
                                 if (displacement != null && displacement.Any(x => x != 0x00))
                                 {
-                                    Buffer.Append("+0x");
-                                    Buffer.Append(Instruction.ConvertToHexString(displacement).Tail(2));
+                                    Buffer.Append("+");
+                                    Buffer.Append(displacement.ToHexString(true, 1));
                                     Buffer.Append("+ebp");
                                 }
                                 break;
@@ -91,8 +91,8 @@ namespace BAMCIS.Disassembler
                             {
                                 if (displacement != null && displacement.Any(x => x != 0x00))
                                 {
-                                    Buffer.Append("+0x");
-                                    Buffer.Append(Instruction.ConvertToHexString(displacement).Tail(8));
+                                    Buffer.Append("+");
+                                    Buffer.Append(displacement.ToHexString(true));
                                     Buffer.Append("+ebp");
                                 }
                                 break;
@@ -113,13 +113,13 @@ namespace BAMCIS.Disassembler
                     {
                         if (modrm.MOD == MOD.RM_BYTE)
                         {
-                            Buffer.Append("+0x");
-                            Buffer.Append(Instruction.ConvertToHexString(displacement).Tail(2));
+                            Buffer.Append("+");
+                            Buffer.Append(displacement.ToHexString(true, 1));
                         }
                         else
                         {
-                            Buffer.Append("+0x");
-                            Buffer.Append(Instruction.ConvertToHexString(displacement).Tail(8));
+                            Buffer.Append("+");
+                            Buffer.Append(displacement.ToHexString(true));
                         }
                     }
                 }

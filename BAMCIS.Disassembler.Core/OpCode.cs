@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
-namespace BAMCIS.Disassembler
+namespace BAMCIS.Disassembler.Core
 {
     public class OpCode
     {
@@ -13,6 +12,10 @@ namespace BAMCIS.Disassembler
         private static readonly Dictionary<byte[], List<OpCode>> LookupTable;
 
         private static readonly Dictionary<byte[], Dictionary<int, OpCode>> ExtensionLookupTable;
+
+        private static readonly HashSet<OpCode> BranchingOpcodes;
+
+        private static readonly HashSet<OpCode> RelativeBranchingOpcodes;
 
         #endregion
 
@@ -147,8 +150,8 @@ namespace BAMCIS.Disassembler
 
                 #region JMP
 
-                new Bit64SignExtendedOpCode(new byte[] { 0xEB }, Constants.JMP, OperandEncoding.D, "Jump short, RIP = RIP + 8-bit displacement sign extended to 64-bits.", 8),
-                new Bit64SignExtendedOpCode(new byte[] { 0xE9 }, Constants.JMP, OperandEncoding.D, "Jump near, relative, RIP = RIP + 32-bit displacement sign extended to 64-bits.", 32),
+                new Bit32SignExtendedOpCode(new byte[] { 0xEB }, Constants.JMP, OperandEncoding.D, "Jump short, RIP = RIP + 8-bit displacement sign extended to 64-bits.", 8),
+                new Bit32SignExtendedOpCode(new byte[] { 0xE9 }, Constants.JMP, OperandEncoding.D, "Jump near, relative, RIP = RIP + 32-bit displacement sign extended to 64-bits.", 32),
                 new OpCode(new byte[] { 0xFF }, Constants.JMP, OperandEncoding.M, "Jump near, absolute indirect, address given in r/m32. Not supported in 64-bit mode.", 32, 4),
                 new OpCode(new byte[] { 0xEA }, Constants.JMP, OperandEncoding.D, "Jump far, absolute, address given in operand.", 32),
                 new OpCode(new byte[] { 0xFF }, Constants.JMP, OperandEncoding.D, "Jump far, absolute indirect, address given in m16:32.", 32, 5),
@@ -380,6 +383,30 @@ namespace BAMCIS.Disassembler
                     }
                 }
             }
+
+            BranchingOpcodes = new HashSet<OpCode>(InstructionList.Where(x => 
+                x.Name.Equals(Constants.JMP) || 
+                x.Name.Equals(Constants.JNZ) || 
+                x.Name.Equals(Constants.JZ)
+            ));
+
+            RelativeBranchingOpcodes = new HashSet<OpCode>();
+
+            foreach (OpCode Op in BranchingOpcodes)
+            {
+                if (
+                    Op.Code.SequenceEqual(new byte[] { 0xE8 }) || // NEAR CALL where displacement is relative to next instruction
+                    Op.Code.SequenceEqual(new byte[] { 0x74 }) || // JZ
+                    Op.Code.SequenceEqual(new byte[] { 0x75 }) || // JNZ
+                    Op.Code.SequenceEqual(new byte[] { 0x0F, 0x84 }) || // JZ
+                    Op.Code.SequenceEqual(new byte[] { 0x0F, 0x85 }) || // JNZ
+                    Op.Code.SequenceEqual(new byte[] { 0xEB }) || // JMP
+                    Op.Code.SequenceEqual(new byte[] { 0xE9 }) // JMP
+                )
+                {
+                    RelativeBranchingOpcodes.Add(Op);
+                }
+            }
         }
 
         protected OpCode(byte[] code, string name, OperandEncoding opEn, string description, int operandSize, int extension = -1, bool signExtended = false, int signExtensionSize = 64)
@@ -397,6 +424,26 @@ namespace BAMCIS.Disassembler
         #endregion
 
         #region Public Methods
+
+        public static bool IsBranchingInstruction(OpCode opcode)
+        {
+            return BranchingOpcodes.Contains(opcode);
+        }
+
+        public bool IsBranchingInstruction()
+        {
+            return BranchingOpcodes.Contains(this);
+        }
+
+        public bool IsRelativeBranchingInstruction()
+        {
+            return RelativeBranchingOpcodes.Contains(this);
+        }
+
+        public static bool IsRelativeBranchingInstruction(OpCode opcode)
+        {
+            return RelativeBranchingOpcodes.Contains(opcode);
+        }
 
         /// <summary>
         /// Determines if the provided OpCode requires an extension to
@@ -514,12 +561,15 @@ namespace BAMCIS.Disassembler
                 this.Code.Equals(Other.Code) &&
                 this.Extension.Equals(Other.Extension) &&
                 this.Description.Equals(Other.Description) &&
-                this.OpEn.Equals(Other.OpEn);
+                this.OpEn.Equals(Other.OpEn) &&
+                this.OperandSize.Equals(Other.OperandSize) &&
+                this.SignExtendedImmediate.Equals(Other.SignExtendedImmediate) &&
+                this.SignExtensionSize.Equals(Other.SignExtensionSize);
         }
 
         public override int GetHashCode()
         {
-            return Hashing.Hash(this.Code, this.Name, this.Description, this.Extension, this.OpEn);
+            return Hashing.Hash(this.Code, this.Name, this.Description, this.Extension, this.OpEn, this.OperandSize, this.SignExtendedImmediate, this.SignExtensionSize);
         }
 
         public static bool operator ==(OpCode left, OpCode right)

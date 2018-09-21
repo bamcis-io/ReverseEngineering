@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace BAMCIS.Disassembler
+﻿namespace BAMCIS.Disassembler.Core
 {
     public static class ScaleExtensionMethods
     {

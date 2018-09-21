@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace BAMCIS.Disassembler
+namespace BAMCIS.Disassembler.Core
 {
     public class Instruction
     {
@@ -19,7 +18,8 @@ namespace BAMCIS.Disassembler
 
         public Int64 Address { get; }
 
-        public byte[] Bytes {
+        public byte[] Bytes
+        {
             get
             {
                 return this._Bytes;
@@ -58,7 +58,7 @@ namespace BAMCIS.Disassembler
                 // Deal with optional, variable amount of prefixes
                 do
                 {
-                    LastByteRead = stream.ReadByte();                   
+                    LastByteRead = stream.ReadByte();
                     IEnumerable<Prefix> Prefixes = Prefix.Parse((byte)LastByteRead);
                     Pre = Prefixes.First();
                     TempPres.Add(Pre);
@@ -237,7 +237,7 @@ namespace BAMCIS.Disassembler
                                 }
 
                                 this.Displacement = Disp;
-                            }                          
+                            }
                         }
                         else if (this.SIB != null && this.SIB.Base == Register.EBP.Code)
                         {
@@ -344,9 +344,129 @@ namespace BAMCIS.Disassembler
             }
         }
 
+        public static IEnumerable<Instruction> LinearSweep(MemoryStream stream)
+        {
+            stream.Position = 0;
+
+            while (stream.Position < stream.Length)
+            {
+                yield return new Instruction(stream);
+            }
+        }
+
+        /// <summary>
+        /// Returns the address and the label name for a relative branching instruction
+        /// </summary>
+        /// <param name="labelPrefix"></param>
+        /// <returns></returns>
+        public KeyValuePair<long, string> GetRelativeBranchDestination(string labelPrefix = "offset_")
+        {
+            if (this.OpCode.OpEn == OperandEncoding.D)
+            {
+                if (this.OpCode.IsRelativeBranchingInstruction())
+                {
+                    long Value = 0;
+                    int Scaling = 1;
+
+                    if (this.Immediate.Length == 1)
+                    {
+                        byte[] Bytes = new byte[2] { this.Immediate[0], 0x00 };
+                        Value = unchecked(BitConverter.ToInt16(Bytes, 0) + this.Address + this.Bytes.Length);
+                    }
+                    else if (this.Immediate.Length == 2)
+                    {
+                        Value = unchecked(BitConverter.ToInt16(this.Immediate, 0) + this.Address + this.Bytes.Length);
+                        Scaling = 2;
+                    }
+                    else if (this.Immediate.Length == 4)
+                    {
+                        Value = unchecked(BitConverter.ToInt32(this.Immediate, 0) + this.Address + this.Bytes.Length);
+                        Scaling = 4;
+                    }
+                    else
+                    {
+                        Value = unchecked(BitConverter.ToInt64(this.Immediate, 0) + this.Address + this.Bytes.Length);
+                        Scaling = 8;
+                    }
+
+                    byte[] ValueBytes = BitConverter.GetBytes(Value);
+
+                    return new KeyValuePair<long, string>(Value, labelPrefix + ValueBytes.ToHexString(true, Scaling).Substring(2));
+                }
+                else
+                {
+                    return new KeyValuePair<long, string>(0, null);
+                }
+            }
+            else
+            {
+                return new KeyValuePair<long, string>(0, null);
+            }
+        }
+
+        public Tuple<string, string, string> ToColumns()
+        {
+            string Address = $"0x{this.Address.ToString("X8")}";
+            string Bytes = this.Bytes.ToHexString().Substring(2);
+            string Command = this.GetOperandString();
+
+            return new Tuple<string, string, string>(Address, Bytes, Command);
+        }
+
         public override string ToString()
         {
-            StringBuilder Buffer = new StringBuilder($"0x{this.Address.ToString("X8")}\t\t");
+            Tuple<string, string, string> Columns = this.ToColumns();
+
+            return $"{Columns.Item1}\t{Columns.Item2}\t{Columns.Item3}";
+        }
+
+        public static IEnumerable<string[]> PrintCodeToColumns(IEnumerable<Instruction> instructions)
+        {
+            SortedDictionary<long, Tuple<string, string, string>> InstructionStrings = new SortedDictionary<long, Tuple<string, string, string>>();
+            SortedDictionary<long, string> Labels = new SortedDictionary<long, string>();
+
+            foreach (Instruction Ins in instructions)
+            {
+                InstructionStrings.Add(Ins.Address, Ins.ToColumns());
+
+                if (Ins.OpCode != null)
+                {
+                    if (Ins.OpCode.IsRelativeBranchingInstruction())
+                    {
+                        KeyValuePair<long, string> Label = Ins.GetRelativeBranchDestination();
+
+                        if (Label.Key != 0 && Label.Value != null && !Labels.ContainsKey(Label.Key))
+                        {
+                            Labels.Add(Label.Key, Label.Value);
+                        }
+                    }
+                }
+            }
+
+            foreach (KeyValuePair<long, Tuple<string, string, string>> Instruction in InstructionStrings)
+            {
+                if (Labels.ContainsKey(Instruction.Key))
+                {
+                    yield return new string[4] { $"{Labels[Instruction.Key]}:", "", "", "" };
+                    yield return new string[4] { "", Instruction.Value.Item1, Instruction.Value.Item2, Instruction.Value.Item3 };
+                }
+                else
+                {
+                    yield return new string[4] { "", Instruction.Value.Item1, Instruction.Value.Item2, Instruction.Value.Item3 };
+                }
+            }
+        }
+
+        public static IEnumerable<string[]> LinearSweepToColumns(byte[] data)
+        {
+            IEnumerable<Instruction> Instructions = LinearSweep(data);
+
+            return PrintCodeToColumns(Instructions);
+        }
+
+        public string GetOperandString()
+        {
+            StringBuilder Buffer = new StringBuilder();
 
             if (this.OpCode == null)
             {
@@ -354,79 +474,26 @@ namespace BAMCIS.Disassembler
             }
             else
             {
-                Buffer.Append($"{this.OpCode.Name.ToLower()}\t\t");
+                Buffer.Append($"{this.OpCode.Name.ToLower()} ");
 
                 switch (this.OpCode.OpEn)
                 {
                     case OperandEncoding.D:
                         {
-                            long Value = 0;
-
-                            
-                            if (
-                                this.OpCode.Code.SequenceEqual(new byte[] { 0xE8 }) || // NEAR CALL where displacement is relative to next instruction
-                                this.OpCode.Code.SequenceEqual(new byte[] { 0x74 }) || // JZ
-                                this.OpCode.Code.SequenceEqual(new byte[] { 0x75 }) || // JNZ
-                                this.OpCode.Code.SequenceEqual(new byte[] { 0x0F, 0x84 }) || // JZ
-                                this.OpCode.Code.SequenceEqual(new byte[] { 0x0F, 0x85 }) || // JNZ
-                                this.OpCode.Code.SequenceEqual(new byte[] { 0xEB }) || // JMP
-                                this.OpCode.Code.SequenceEqual(new byte[] { 0xE9 }) // JMP
-                                )
+                            if (this.OpCode.IsRelativeBranchingInstruction())
                             {
-                                if (this.Immediate.Length == 1)
-                                {
-                                    byte[] Bytes = new byte[2] { this.Immediate[0], 0x00 };
-                                    Value = unchecked(BitConverter.ToInt16(Bytes, 0) + this.Address + this.Bytes.Length);
-                                }
-                                else if (this.Immediate.Length == 2)
-                                {
-                                    Value = unchecked(BitConverter.ToInt16(this.Immediate, 0) + this.Address + this.Bytes.Length);
-                                }
-                                else if (this.Immediate.Length == 4)
-                                {
-                                    Value = unchecked(BitConverter.ToInt32(this.Immediate, 0) + this.Address + this.Bytes.Length);
-                                }
-                                else
-                                {
-                                    Value = unchecked(BitConverter.ToInt64(this.Immediate, 0) + this.Address + this.Bytes.Length);
-                                }
-                                                              
-                                Buffer.Append("offset_");
-
-                                byte[] ValueBytes = BitConverter.GetBytes(Value);
-
-                                Buffer.Append(ConvertToHexString(ValueBytes).Substring(2));
+                                Buffer.Append(this.GetRelativeBranchDestination().Value);
                             }
                             else
                             {
-                                if (this.Immediate.Length == 1)
-                                {
-                                    byte[] Bytes = new byte[2] { this.Immediate[0], 0x00 };
-                                    Value = BitConverter.ToInt16(Bytes, 0);
-                                }
-                                else if (this.Immediate.Length == 2)
-                                {
-                                    Value = BitConverter.ToInt16(this.Immediate, 0);
-                                }
-                                else if (this.Immediate.Length == 4)
-                                {
-                                    Value = BitConverter.ToInt32(this.Immediate, 0);
-                                }
-                                else
-                                {
-                                    Value = BitConverter.ToInt64(this.Immediate, 0);
-                                }
-
-                                byte[] ValueBytes = BitConverter.GetBytes(Value);
-
-                                Buffer.Append(ConvertToHexString(ValueBytes));
+                                Buffer.Append(this.Immediate.ToHexStringSignExtended(true));
                             }
 
                             break;
-                        }                   
+                        }
                     case OperandEncoding.I:
                         {
-                            Buffer.Append(ConvertToHexString(this.Immediate));
+                            Buffer.Append(this.Immediate.ToHexString(true));
                             break;
                         }
                     case OperandEncoding.M:
@@ -451,7 +518,7 @@ namespace BAMCIS.Disassembler
                         {
                             Buffer.Append(this.GetRegMemOperandString());
                             Buffer.Append(", ");
-                            Buffer.Append(ConvertToHexString(this.Immediate));
+                            Buffer.Append(this.Immediate.ToHexString(true));
                             break;
                         }
                     case OperandEncoding.MR:
@@ -470,12 +537,12 @@ namespace BAMCIS.Disassembler
                         {
                             Buffer.Append(this.EncodedRegister.ToString().ToLower());
                             Buffer.Append(", ");
-                            Buffer.Append(ConvertToHexString(this.Immediate));
+                            Buffer.Append(this.Immediate.ToHexString(true));
                             break;
                         }
                     case OperandEncoding.RM:
                         {
-                            Buffer.Append(Register.GetRegister(this.ModRM.REG).Name.ToLower());                            
+                            Buffer.Append(Register.GetRegister(this.ModRM.REG).Name.ToLower());
                             Buffer.Append(", ");
                             Buffer.Append(this.GetRegMemOperandString());
 
@@ -487,17 +554,17 @@ namespace BAMCIS.Disassembler
                             Buffer.Append(", ");
                             Buffer.Append(this.GetRegMemOperandString());
                             Buffer.Append(", ");
-                            Buffer.Append(ConvertToHexString(this.Immediate));
+                            Buffer.Append(this.Immediate.ToHexString(true));
                             break;
                         }
                     case OperandEncoding.TD:
                         {
-                            Buffer.Append("Moffs\t\tEAX");
+                            Buffer.Append("Moffs, EAX");
                             break;
                         }
                     case OperandEncoding.FD:
                         {
-                            Buffer.Append("EAX\t\tMoffs");
+                            Buffer.Append("EAX, Moffs");
                             break;
                         }
                     default:
@@ -513,49 +580,10 @@ namespace BAMCIS.Disassembler
             return Buffer.ToString();
         }
 
-        public static string ConvertToHexString(byte[] bytes)
-        {
-            long Value = 0;
-
-            if (bytes.Length == 1)
-            {
-                byte[] Temp = new byte[] { bytes[0], 0x00 };
-                Value = BitConverter.ToInt16(Temp, 0);
-            }
-            else if (bytes.Length == 2)
-            {
-                Value = BitConverter.ToInt16(bytes, 0);
-            }
-            else if (bytes.Length == 4)
-            {
-                Value = BitConverter.ToInt32(bytes, 0);
-            }
-            else if (bytes.Length == 8)
-            {
-                Value = BitConverter.ToInt64(bytes, 0);
-            }
-            else
-            {
-                throw new ArgumentOutOfRangeException("bytes", "The maximum length of the input is 8 bytes and must be 1, 2, 4, or 8.");
-            }
-
-            byte[] ValueBytes = BitConverter.GetBytes(Value);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(ValueBytes); // Convert from little endian
-            }
-
-            string HexString = BitConverter.ToString(ValueBytes);
-            HexString = "0x" + HexString.Replace("-", "").PadLeft(8, '0').Tail(8);
-
-            return HexString;
-        }
-
         #endregion
 
         #region Private Methods
-
+       
         private void Finalize(MemoryStream stream)
         {
             long Quantity = 1;
@@ -587,7 +615,7 @@ namespace BAMCIS.Disassembler
                     if (this.ModRM.MOD == MOD.RM && this.ModRM.RM == 0x05)
                     {
                         // Displacement only
-                        Buffer.Append(ConvertToHexString(this.Displacement));
+                        Buffer.Append(this.Displacement.ToHexStringSignExtended(true));
                     }
                     else
                     {
@@ -596,12 +624,11 @@ namespace BAMCIS.Disassembler
 
                         if (ModRM.MOD == MOD.RM_BYTE)
                         {
-                            Buffer.Append("0x");
-                            Buffer.Append(ConvertToHexString(this.Displacement).Tail(2));
+                            Buffer.Append(this.Displacement.ToHexString(true, 1));
                         }
                         else
                         {
-                            Buffer.Append(ConvertToHexString(this.Displacement));
+                            Buffer.Append(this.Displacement.ToHexStringSignExtended(true));
                         }
                     }
 

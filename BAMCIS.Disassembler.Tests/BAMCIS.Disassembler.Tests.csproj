@@ -14,11 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BAMCIS.Disassembler\BAMCIS.Disassembler.csproj" />
+    <Folder Include="CodeFiles\" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="CodeFiles\" />
+    <ProjectReference Include="..\BAMCIS.Disassembler.Core\BAMCIS.Disassembler.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

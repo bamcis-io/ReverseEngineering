@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "BAMCIS.Disassembler": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\mhaken\\source\\repos\\ReverseEngineering\\BAMCIS.Disassembler.Tests\\CodeFiles\\more_examples.o"
+    }
+  }
+}

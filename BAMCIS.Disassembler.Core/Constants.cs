@@ -1,4 +1,4 @@
-﻿namespace BAMCIS.Disassembler
+﻿namespace BAMCIS.Disassembler.Core
 {
     public static class Constants
     {
