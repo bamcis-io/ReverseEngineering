@@ -8,7 +8,9 @@
                 encoding == OperandEncoding.MI ||
                 encoding == OperandEncoding.MR ||
                 encoding == OperandEncoding.RM ||
-                encoding == OperandEncoding.RMI);
+                encoding == OperandEncoding.RMI ||
+                encoding == OperandEncoding.M1 ||
+                encoding == OperandEncoding.MC);
         }
 
         public static bool UsesRegisterValueWithOpCode(this OperandEncoding encoding)
@@ -22,7 +24,8 @@
             return encoding == OperandEncoding.I ||
                 encoding == OperandEncoding.MI ||
                 encoding == OperandEncoding.OI ||
-                encoding == OperandEncoding.RMI;
+                encoding == OperandEncoding.RMI ||
+                encoding == OperandEncoding.D;
         }
     }
 }

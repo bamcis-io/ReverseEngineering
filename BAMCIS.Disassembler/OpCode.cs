@@ -30,6 +30,10 @@ namespace BAMCIS.Disassembler
 
         public int OperandSize { get; }
 
+        public bool SignExtendedImmediate { get; }
+
+        public int SignExtensionSize { get; }
+
         #endregion
 
         #region Constructors
@@ -81,7 +85,7 @@ namespace BAMCIS.Disassembler
 
                 #region CALL
 
-                new OpCode(new byte[] { 0xE8 }, Constants.CALL, OperandEncoding.M, "Call near, relative, displacement relative to next instruction.", 32),
+                new OpCode(new byte[] { 0xE8 }, Constants.CALL, OperandEncoding.D, "Call near, relative, displacement relative to next instruction.", 32),
                 new OpCode(new byte[] { 0xFF }, Constants.CALL, OperandEncoding.M, "Call near, absolute indirect, address given in r/m32.", 32, 2),
                 new OpCode(new byte[] { 0x9A }, Constants.CALL, OperandEncoding.D, "Call far, absolute, address given in operand.", 32),
                 new OpCode(new byte[] { 0xFF }, Constants.CALL, OperandEncoding.M, "Call far, absolute indirect address given in m16:16.", 16, 3),
@@ -143,8 +147,8 @@ namespace BAMCIS.Disassembler
 
                 #region JMP
 
-                new OpCode(new byte[] { 0xEB }, Constants.JMP, OperandEncoding.D, "Jump short, RIP = RIP + 8-bit displacement sign extended to 64-bits.", 8),
-                new OpCode(new byte[] { 0xE9 }, Constants.JMP, OperandEncoding.D, "Jump near, relative, RIP = RIP + 32-bit displacement sign extended to 64-bits.", 32),
+                new Bit64SignExtendedOpCode(new byte[] { 0xEB }, Constants.JMP, OperandEncoding.D, "Jump short, RIP = RIP + 8-bit displacement sign extended to 64-bits.", 8),
+                new Bit64SignExtendedOpCode(new byte[] { 0xE9 }, Constants.JMP, OperandEncoding.D, "Jump near, relative, RIP = RIP + 32-bit displacement sign extended to 64-bits.", 32),
                 new OpCode(new byte[] { 0xFF }, Constants.JMP, OperandEncoding.M, "Jump near, absolute indirect, address given in r/m32. Not supported in 64-bit mode.", 32, 4),
                 new OpCode(new byte[] { 0xEA }, Constants.JMP, OperandEncoding.D, "Jump far, absolute, address given in operand.", 32),
                 new OpCode(new byte[] { 0xFF }, Constants.JMP, OperandEncoding.D, "Jump far, absolute indirect, address given in m16:32.", 32, 5),
@@ -153,7 +157,9 @@ namespace BAMCIS.Disassembler
 
                 #region JZ / JNZ
 
+                new OpCode(new byte[] { 0x74 }, Constants.JZ, OperandEncoding.D, "Jump short if zero (ZF = 1).", 8),
                 new OpCode(new byte[] { 0x0F, 0x84 }, Constants.JZ, OperandEncoding.D, "Jump near if 0 (ZF=1).", 32),
+                new OpCode(new byte[] { 0x75 }, Constants.JNZ, OperandEncoding.D, "Jump short if not zero (ZF=0).", 8),
                 new OpCode(new byte[] { 0x0F, 0x85 }, Constants.JNZ, OperandEncoding.D, "Jump near if not zero(ZF = 0).", 32),
 
                 #endregion
@@ -376,7 +382,7 @@ namespace BAMCIS.Disassembler
             }
         }
 
-        private OpCode(byte[] code, string name, OperandEncoding opEn, string description, int operandSize, int extension = -1)
+        protected OpCode(byte[] code, string name, OperandEncoding opEn, string description, int operandSize, int extension = -1, bool signExtended = false, int signExtensionSize = 64)
         {
             this.Code = code;
             this.Name = name;
@@ -384,6 +390,8 @@ namespace BAMCIS.Disassembler
             this.Description = description;
             this.OperandSize = operandSize;
             this.Extension = extension;
+            this.SignExtendedImmediate = signExtended;
+            this.SignExtensionSize = signExtensionSize;
         }
 
         #endregion
@@ -438,6 +446,14 @@ namespace BAMCIS.Disassembler
                 if (LookupTable[data].Count == 1)
                 {
                     opCode = LookupTable[data].First();
+
+                    // This means the encoded register is EAX
+                    if ((opCode.OpEn == OperandEncoding.O ||
+                        opCode.OpEn == OperandEncoding.OI) && offsetRegister == null)
+                    {
+                        offsetRegister = Register.EAX;
+                    }
+
                     return true;
                 }
                 else
@@ -447,6 +463,14 @@ namespace BAMCIS.Disassembler
                         int Reg = (modrm >> 3) & 0x07;
 
                         opCode = ExtensionLookupTable[data][Reg];
+
+                        // This means the encoded register is EAX
+                        if ((opCode.OpEn == OperandEncoding.O ||
+                            opCode.OpEn == OperandEncoding.OI) && offsetRegister == null)
+                        {
+                            offsetRegister = Register.EAX;
+                        }
+
                         return true;
                     }
                     else

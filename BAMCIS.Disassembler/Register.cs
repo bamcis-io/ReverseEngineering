@@ -58,6 +58,11 @@ namespace BAMCIS.Disassembler
 
         #region Public Methods
 
+        public override string ToString()
+        {
+            return this.Name.ToLower();
+        }
+
         public static bool IsValidRegister(byte code)
         {
             return LookupTable.ContainsKey(code);

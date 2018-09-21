@@ -3,12 +3,28 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace BAMCIS.Disassembler
 {
     public class Instruction
     {
+        #region Private Fields
+
+        private byte[] _Bytes;
+
+        #endregion
+
         #region Public Properties
+
+        public Int64 Address { get; }
+
+        public byte[] Bytes {
+            get
+            {
+                return this._Bytes;
+            }
+        }
 
         public IEnumerable<Prefix> Prefixes { get; }
 
@@ -17,6 +33,8 @@ namespace BAMCIS.Disassembler
         public ModRM ModRM { get; }
 
         public SIB SIB { get; }
+
+        public Register EncodedRegister { get; }
 
         public byte[] Displacement { get; }
 
@@ -28,7 +46,9 @@ namespace BAMCIS.Disassembler
 
         private Instruction(MemoryStream stream)
         {
-            if (stream.Position < stream.Length - 1)
+            this.Address = stream.Position;
+
+            if (stream.Position < stream.Length)
             {
                 Prefix Pre;
                 List<Prefix> TempPres = new List<Prefix>();
@@ -38,7 +58,7 @@ namespace BAMCIS.Disassembler
                 // Deal with optional, variable amount of prefixes
                 do
                 {
-                    LastByteRead = stream.ReadByte();
+                    LastByteRead = stream.ReadByte();                   
                     IEnumerable<Prefix> Prefixes = Prefix.Parse((byte)LastByteRead);
                     Pre = Prefixes.First();
                     TempPres.Add(Pre);
@@ -113,7 +133,7 @@ namespace BAMCIS.Disassembler
 
                 bool ValidOpCode = false;
                 OpCode Op;
-                Register OffsetRegister;
+                Register OffsetRegister = null;
 
                 // Try to see if 2 byte arrangement is a valid opcode
                 if (OpCode.RequiresOpCodeExtension(OpCodeBytes))
@@ -148,6 +168,8 @@ namespace BAMCIS.Disassembler
 
                 if (ValidOpCode)
                 {
+                    this.EncodedRegister = OffsetRegister;
+
                     this.OpCode = Op;
 
                     if (this.OpCode.RequiresModRM())
@@ -156,6 +178,8 @@ namespace BAMCIS.Disassembler
 
                         if (ModRMByte == -1)
                         {
+                            this.OpCode = null;
+                            this.Finalize(stream);
                             return;
                         }
                         this.ModRM = new ModRM((byte)ModRMByte);
@@ -167,6 +191,8 @@ namespace BAMCIS.Disassembler
 
                             if (SIBByte == -1)
                             {
+                                this.OpCode = null;
+                                this.Finalize(stream);
                                 return;
                             }
 
@@ -185,6 +211,8 @@ namespace BAMCIS.Disassembler
 
                                 if (Displacement == -1)
                                 {
+                                    this.OpCode = null;
+                                    this.Finalize(stream);
                                     return;
                                 }
 
@@ -195,26 +223,41 @@ namespace BAMCIS.Disassembler
                                 byte[] Disp = new byte[4];
                                 int BytesRead = stream.Read(Disp, 0, 4);
 
+                                if (BytesRead == -1)
+                                {
+                                    this.OpCode = null;
+                                    this.Finalize(stream);
+                                    return;
+                                }
+
                                 if (BytesRead == 0)
                                 {
+                                    this.Finalize(stream);
                                     return;
                                 }
 
                                 this.Displacement = Disp;
-                            }
+                            }                          
                         }
-
-                        if (this.OpCode.OpEn.InstructionHasImmediate())
+                        else if (this.SIB != null && this.SIB.Base == Register.EBP.Code)
                         {
-                            byte[] Imm = new byte[4];
-                            int BytesRead = stream.Read(Imm, 0, 4);
+                            byte[] Disp = new byte[4];
+                            int BytesRead = stream.Read(Disp, 0, 4);
 
-                            if (BytesRead == 0)
+                            if (BytesRead == -1)
                             {
+                                this.OpCode = null;
+                                this.Finalize(stream);
                                 return;
                             }
 
-                            this.Immediate = Imm;
+                            if (BytesRead == 0)
+                            {
+                                this.Finalize(stream);
+                                return;
+                            }
+
+                            this.Displacement = Disp;
                         }
                     }
                     else
@@ -222,11 +265,65 @@ namespace BAMCIS.Disassembler
                         this.ModRM = null;
                         this.SIB = null;
                         this.Displacement = null;
-                        this.Immediate = null;
+                    }
+
+                    if (this.OpCode.OpEn.InstructionHasImmediate())
+                    {
+                        if (this.OpCode.SignExtendedImmediate)
+                        {
+                            byte[] Imm = new byte[this.OpCode.OperandSize / 8];
+                            int BytesRead = stream.Read(Imm, 0, Imm.Length);
+
+                            byte[] Imm2 = new byte[this.OpCode.SignExtensionSize / 8];
+
+                            if (BytesRead < Imm2.Length)
+                            {
+                                Array.Copy(Imm, Imm2, Imm.Length);
+                                byte Padding = 0x00;
+
+                                if ((Imm[Imm.Length - 1] & 0x80) == 0x80)
+                                {
+                                    Padding = 0xFF;
+                                }
+
+                                for (int i = Imm.Length; i < Imm2.Length; i++)
+                                {
+                                    Imm2[i] = Padding;
+                                }
+
+                                this.Immediate = Imm2;
+                            }
+                            else
+                            {
+                                this.Immediate = Imm;
+                            }
+                        }
+                        else
+                        {
+                            byte[] Imm = new byte[this.OpCode.OperandSize / 8];
+                            int BytesRead = stream.Read(Imm, 0, Imm.Length);
+
+                            if (BytesRead == -1)
+                            {
+                                this.OpCode = null;
+                                this.Finalize(stream);
+                                return;
+                            }
+
+                            if (BytesRead == 0)
+                            {
+                                this.Finalize(stream);
+                                return;
+                            }
+
+                            this.Immediate = Imm;
+                        }
                     }
                 }
                 // Otherwise, skip this byte and move on
             }
+
+            this.Finalize(stream);
         }
 
         #endregion
@@ -245,6 +342,301 @@ namespace BAMCIS.Disassembler
                     yield return new Instruction(MStream);
                 }
             }
+        }
+
+        public override string ToString()
+        {
+            StringBuilder Buffer = new StringBuilder($"0x{this.Address.ToString("X8")}\t\t");
+
+            if (this.OpCode == null)
+            {
+                Buffer.Append($" db {this.Bytes[0].ToString("X2")} INVALID OPCODE");
+            }
+            else
+            {
+                Buffer.Append($"{this.OpCode.Name.ToLower()}\t\t");
+
+                switch (this.OpCode.OpEn)
+                {
+                    case OperandEncoding.D:
+                        {
+                            long Value = 0;
+
+                            
+                            if (
+                                this.OpCode.Code.SequenceEqual(new byte[] { 0xE8 }) || // NEAR CALL where displacement is relative to next instruction
+                                this.OpCode.Code.SequenceEqual(new byte[] { 0x74 }) || // JZ
+                                this.OpCode.Code.SequenceEqual(new byte[] { 0x75 }) || // JNZ
+                                this.OpCode.Code.SequenceEqual(new byte[] { 0x0F, 0x84 }) || // JZ
+                                this.OpCode.Code.SequenceEqual(new byte[] { 0x0F, 0x85 }) || // JNZ
+                                this.OpCode.Code.SequenceEqual(new byte[] { 0xEB }) || // JMP
+                                this.OpCode.Code.SequenceEqual(new byte[] { 0xE9 }) // JMP
+                                )
+                            {
+                                if (this.Immediate.Length == 1)
+                                {
+                                    byte[] Bytes = new byte[2] { this.Immediate[0], 0x00 };
+                                    Value = unchecked(BitConverter.ToInt16(Bytes, 0) + this.Address + this.Bytes.Length);
+                                }
+                                else if (this.Immediate.Length == 2)
+                                {
+                                    Value = unchecked(BitConverter.ToInt16(this.Immediate, 0) + this.Address + this.Bytes.Length);
+                                }
+                                else if (this.Immediate.Length == 4)
+                                {
+                                    Value = unchecked(BitConverter.ToInt32(this.Immediate, 0) + this.Address + this.Bytes.Length);
+                                }
+                                else
+                                {
+                                    Value = unchecked(BitConverter.ToInt64(this.Immediate, 0) + this.Address + this.Bytes.Length);
+                                }
+                                                              
+                                Buffer.Append("offset_");
+
+                                byte[] ValueBytes = BitConverter.GetBytes(Value);
+
+                                Buffer.Append(ConvertToHexString(ValueBytes).Substring(2));
+                            }
+                            else
+                            {
+                                if (this.Immediate.Length == 1)
+                                {
+                                    byte[] Bytes = new byte[2] { this.Immediate[0], 0x00 };
+                                    Value = BitConverter.ToInt16(Bytes, 0);
+                                }
+                                else if (this.Immediate.Length == 2)
+                                {
+                                    Value = BitConverter.ToInt16(this.Immediate, 0);
+                                }
+                                else if (this.Immediate.Length == 4)
+                                {
+                                    Value = BitConverter.ToInt32(this.Immediate, 0);
+                                }
+                                else
+                                {
+                                    Value = BitConverter.ToInt64(this.Immediate, 0);
+                                }
+
+                                byte[] ValueBytes = BitConverter.GetBytes(Value);
+
+                                Buffer.Append(ConvertToHexString(ValueBytes));
+                            }
+
+                            break;
+                        }                   
+                    case OperandEncoding.I:
+                        {
+                            Buffer.Append(ConvertToHexString(this.Immediate));
+                            break;
+                        }
+                    case OperandEncoding.M:
+                        {
+                            Buffer.Append(this.GetRegMemOperandString());
+
+                            break;
+                        }
+                    case OperandEncoding.M1:
+                        {
+                            Buffer.Append(this.GetRegMemOperandString());
+                            Buffer.Append(", 1");
+                            break;
+                        }
+                    case OperandEncoding.MC:
+                        {
+                            Buffer.Append(this.GetRegMemOperandString());
+                            Buffer.Append(", CL");
+                            break;
+                        }
+                    case OperandEncoding.MI:
+                        {
+                            Buffer.Append(this.GetRegMemOperandString());
+                            Buffer.Append(", ");
+                            Buffer.Append(ConvertToHexString(this.Immediate));
+                            break;
+                        }
+                    case OperandEncoding.MR:
+                        {
+                            Buffer.Append(this.GetRegMemOperandString());
+                            Buffer.Append(", ");
+                            Buffer.Append(Register.GetRegister(this.ModRM.REG).Name.ToLower());
+                            break;
+                        }
+                    case OperandEncoding.O:
+                        {
+                            Buffer.Append(this.EncodedRegister.ToString().ToLower());
+                            break;
+                        }
+                    case OperandEncoding.OI:
+                        {
+                            Buffer.Append(this.EncodedRegister.ToString().ToLower());
+                            Buffer.Append(", ");
+                            Buffer.Append(ConvertToHexString(this.Immediate));
+                            break;
+                        }
+                    case OperandEncoding.RM:
+                        {
+                            Buffer.Append(Register.GetRegister(this.ModRM.REG).Name.ToLower());                            
+                            Buffer.Append(", ");
+                            Buffer.Append(this.GetRegMemOperandString());
+
+                            break;
+                        }
+                    case OperandEncoding.RMI:
+                        {
+                            Buffer.Append(Register.GetRegister(this.ModRM.REG).Name.ToLower());
+                            Buffer.Append(", ");
+                            Buffer.Append(this.GetRegMemOperandString());
+                            Buffer.Append(", ");
+                            Buffer.Append(ConvertToHexString(this.Immediate));
+                            break;
+                        }
+                    case OperandEncoding.TD:
+                        {
+                            Buffer.Append("Moffs\t\tEAX");
+                            break;
+                        }
+                    case OperandEncoding.FD:
+                        {
+                            Buffer.Append("EAX\t\tMoffs");
+                            break;
+                        }
+                    default:
+                    case OperandEncoding.NP:
+                    case OperandEncoding.ZO:
+                        {
+                            // No operands
+                            break;
+                        }
+                }
+            }
+
+            return Buffer.ToString();
+        }
+
+        public static string ConvertToHexString(byte[] bytes)
+        {
+            long Value = 0;
+
+            if (bytes.Length == 1)
+            {
+                byte[] Temp = new byte[] { bytes[0], 0x00 };
+                Value = BitConverter.ToInt16(Temp, 0);
+            }
+            else if (bytes.Length == 2)
+            {
+                Value = BitConverter.ToInt16(bytes, 0);
+            }
+            else if (bytes.Length == 4)
+            {
+                Value = BitConverter.ToInt32(bytes, 0);
+            }
+            else if (bytes.Length == 8)
+            {
+                Value = BitConverter.ToInt64(bytes, 0);
+            }
+            else
+            {
+                throw new ArgumentOutOfRangeException("bytes", "The maximum length of the input is 8 bytes and must be 1, 2, 4, or 8.");
+            }
+
+            byte[] ValueBytes = BitConverter.GetBytes(Value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(ValueBytes); // Convert from little endian
+            }
+
+            string HexString = BitConverter.ToString(ValueBytes);
+            HexString = "0x" + HexString.Replace("-", "").PadLeft(8, '0').Tail(8);
+
+            return HexString;
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        private void Finalize(MemoryStream stream)
+        {
+            long Quantity = 1;
+
+            if (this.OpCode != null)
+            {
+                Quantity = stream.Position - this.Address;
+            }
+
+            stream.Position = this.Address;
+            this._Bytes = new byte[Quantity];
+            stream.Read(this.Bytes, 0, (int)Quantity);
+        }
+
+        private string GetRegMemOperandString()
+        {
+            StringBuilder Buffer = new StringBuilder();
+
+            if (this.OperandRequiresModification())
+            {
+                if (this.SIB != null)
+                {
+                    Buffer.Append(this.SIB.ToString(this.ModRM, this.Displacement));
+                }
+                else // Only other option is displacement if SIB is null
+                {
+                    Buffer.Append("[");
+
+                    if (this.ModRM.MOD == MOD.RM && this.ModRM.RM == 0x05)
+                    {
+                        // Displacement only
+                        Buffer.Append(ConvertToHexString(this.Displacement));
+                    }
+                    else
+                    {
+                        Buffer.Append(Register.GetRegister(this.ModRM.RM).Name.ToLower());
+                        Buffer.Append("+");
+
+                        if (ModRM.MOD == MOD.RM_BYTE)
+                        {
+                            Buffer.Append("0x");
+                            Buffer.Append(ConvertToHexString(this.Displacement).Tail(2));
+                        }
+                        else
+                        {
+                            Buffer.Append(ConvertToHexString(this.Displacement));
+                        }
+                    }
+
+                    Buffer.Append("]");
+                }
+            }
+            else
+            {
+                if (this.ModRM != null)
+                {
+                    if (this.ModRM.MOD == MOD.RM)
+                    {
+                        Buffer.Append("[");
+                        Buffer.Append(Register.GetRegister(this.ModRM.RM).Name.ToLower());
+                        Buffer.Append("]");
+                    }
+                    else
+                    {
+                        Buffer.Append(Register.GetRegister(this.ModRM.RM).Name.ToLower());
+                    }
+                }
+                else
+                {
+                    // Otherwise it should have a ModRM, which may mean this is last instruction
+                    // and not everything was included
+                    Buffer.Append("MODRM MISSING");
+                }
+            }
+
+            return Buffer.ToString();
+        }
+
+        public bool OperandRequiresModification()
+        {
+            return ((this.Displacement != null && this.Displacement.Length > 0) || this.SIB != null);
         }
 
         #endregion

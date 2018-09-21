@@ -17,4 +17,23 @@
     <ProjectReference Include="..\BAMCIS.Disassembler\BAMCIS.Disassembler.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="CodeFiles\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="CodeFiles\ex2.o">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CodeFiles\example1.o">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CodeFiles\example2.o">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CodeFiles\more_examples.o">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
